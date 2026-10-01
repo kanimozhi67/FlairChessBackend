@@ -912,3 +912,103 @@ export const getStudentReadingResults =
       });
     }
   };
+  // GET /reading/completed
+  
+// GET /reading/completed
+
+export const getCompletedReadingStories = async (req, res) => {
+  try {
+    const { studentId, userId } = req.query;
+
+    // -----------------------------------------
+    // Validate
+    // -----------------------------------------
+
+    if (!studentId && !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "studentId or userId is required.",
+      });
+    }
+
+    // -----------------------------------------
+    // Find Student or User
+    // -----------------------------------------
+
+    const { account, accountType } = await findAccount({
+      studentId,
+      userId,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "User or student account not found.",
+      });
+    }
+
+    // -----------------------------------------
+    // Get completed story IDs
+    // -----------------------------------------
+
+    const completedStoryIds = Array.isArray(
+      account.completedStories
+    )
+      ? account.completedStories.map((id) => String(id))
+      : [];
+
+    console.log("================================");
+    console.log("GET COMPLETED READING STORIES");
+    console.log("Account:", account._id.toString());
+    console.log("Account Type:", accountType);
+    console.log("Completed Stories:", completedStoryIds);
+    console.log("================================");
+
+    // -----------------------------------------
+    // No completed stories
+    // -----------------------------------------
+
+    if (completedStoryIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+        accountType,
+      });
+    }
+
+    // -----------------------------------------
+    // Fetch stories
+    // -----------------------------------------
+
+    const stories = await ReadingComprehension.find({
+      _id: {
+        $in: completedStoryIds,
+      },
+    })
+      .select("_id title grade vocabulary")
+      .lean();
+
+    // -----------------------------------------
+    // Response
+    // -----------------------------------------
+
+    return res.status(200).json({
+      success: true,
+      count: stories.length,
+      data: stories,
+      accountType,
+    });
+  } catch (error) {
+    console.error(
+      "❌ getCompletedReadingStories:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to get completed reading stories",
+      error: error.message,
+    });
+  }
+};
