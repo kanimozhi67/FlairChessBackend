@@ -67,10 +67,13 @@ const readingComprehensionSchema =
       },
 
       grade: {
-        type: Number,
+        type: String,
         required: true,
       },
-
+emoji:{
+  type: String,
+     
+    },
       category: {
         type: String,
         default: "Reading Comprehension",

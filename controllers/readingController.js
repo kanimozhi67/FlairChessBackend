@@ -124,11 +124,12 @@ export const getReadingById = async (
   res
 ) => {
   try {
+    console.log("id",req.params.id);
     const reading =
       await ReadingComprehension.findById(
         req.params.id
       );
-
+console.log("id",req.params.id)
     if (!reading) {
       return res.status(404).json({
         success: false,
@@ -147,7 +148,7 @@ export const getReadingById = async (
       "❌ getReadingById:",
       error
     );
-
+ console.log("id",req.params.id);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -175,7 +176,7 @@ export const getUnfinishedReadingStories =
   async (req, res) => {
     try {
       const { grade } = req.params;
-
+console.log("Grade:",grade)
       const {
         studentId,
         userId,
@@ -192,16 +193,17 @@ export const getUnfinishedReadingStories =
         });
       }
 
-      const gradeNumber = Number(grade);
+       const gradeNumber = String(grade);
+      // const gradeNumber = Number(grade);
 
-      if (
-        Number.isNaN(gradeNumber)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid grade.",
-        });
-      }
+      // if (
+      //   Number.isNaN(gradeNumber)
+      // ) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Invalid grade.",
+      //   });
+      // }
 
       // -----------------------------------------
       // Validate user/student

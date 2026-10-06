@@ -5,7 +5,8 @@ import {grade3ReadingData} from "./grade3Story.js";
 import {grade4ReadingData} from "./grade4Story.js";
 import {grade5ReadingData} from "./grade5Story.js";
 import ReadingComprehension from "../models/ReadingComprehension.js";
-
+import { kg1ReadingData } from "./kg1ReadingData.js";
+import { kg2ReadingData } from "./kg2ReadingData.js";
 dotenv.config();
 
 export const readingData = [
@@ -8697,6 +8698,8 @@ const seedDatabase = async () => {
 
     // Combine all reading stories
     const allReadingData = [
+      ...kg1ReadingData,
+      ...kg2ReadingData,
       ...readingData,
       ...grade2ReadingData,
       ...grade3ReadingData,
