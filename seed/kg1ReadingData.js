@@ -1,5 +1,5 @@
 export const kg1ReadingData = [
-
+  
   // =====================================================
   // 1. THE SAD PUP - BE KIND
   // =====================================================
@@ -7,6 +7,7 @@ export const kg1ReadingData = [
     title: "The Sad Pup",
     emoji: "🐶",
     grade: "kg1",
+    storyimage:"/img/PuppysSunnyFriendshipStory.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -136,6 +137,7 @@ Moral: Be kind to all. ❤️
     title: "The Red Ball",
     emoji: "🔴",
     grade: "kg1",
+     storyimage:"/img/TheRedBallShareWithFriends.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -265,6 +267,7 @@ Moral: Share with your pals. ❤️
     title: "The Lost Cup",
     emoji: "🥤",
     grade: "kg1",
+        storyimage:"/img/TheLostCupAStoryofHonesty.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -396,6 +399,7 @@ Moral: Always tell the truth. ⭐
     title: "The Ant and the Bug",
     emoji: "🐜",
     grade: "kg1",
+  storyimage:"/img/TheAntandtheBugTeamworkTale.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -525,6 +529,7 @@ Moral: Help each other. ❤️
     title: "The Dry Plant",
     emoji: "🌱",
     grade: "kg1",
+      storyimage:"/img/TheGirlWhoCaredforaPlant.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -654,6 +659,7 @@ Moral: Care for plants. 🌍
     title: "The Lost Kite",
     emoji: "🪁",
     grade: "kg1",
+      storyimage:"/img/MiaLeoKiteAdventure.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -785,6 +791,7 @@ Moral: Help your pals. ❤️
     title: "The Little Fish",
     emoji: "🐟",
     grade: "kg1",
+    storyimage:"/img/TheLittleFishWhoNeverGaveUp.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -1043,6 +1050,7 @@ Moral: Keep your hands clean. ❤️
     title: "The Hungry Bird",
     emoji: "🐦",
     grade: "kg1",
+      storyimage:"/img/AliCleanHandsAdventure.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,
@@ -1172,6 +1180,8 @@ Moral: Care for animals. ❤️
     title: "The Good Deed",
     emoji: "💖",
     grade: "kg1",
+    
+      storyimage:"/img/MiaKindnessMakesSmiles.png",
     category: "Moral Stories",
     difficulty: "easy",
     estimatedTime: 5,

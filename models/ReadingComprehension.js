@@ -74,6 +74,10 @@ emoji:{
   type: String,
      
     },
+     storyimage: {
+      type: String,
+      default: "",
+    },
       category: {
         type: String,
         default: "Reading Comprehension",
