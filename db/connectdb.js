@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+ //import User from "../models/User.js";
+
 let cachedConnection = null;
 
 const connectdb = async () => {
@@ -22,6 +24,13 @@ const connectdb = async () => {
 
     console.log("MongoDB Connected");
 
+
+//  await User.updateMany(
+//   {},
+//   { $set: { completedStories: [] } }
+// );
+//   console.log("User Updated");
+
     return connection;
   } catch (error) {
     cachedConnection = null;
@@ -33,6 +42,9 @@ const connectdb = async () => {
 
     throw error;
   }
+
+  
+
 };
 
 export default connectdb;
