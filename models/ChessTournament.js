@@ -5,7 +5,7 @@ const { Schema } = mongoose;
 const tournamentPlayerSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, required: true },
-    userModel: { type: String, enum: ["User", "Student"], default: "User" },
+    userModel: { type: String, enum: ["User", "StudentModel"], default: "User" },
     displayName: { type: String, required: true, trim: true, maxlength: 80 },
     rating: { type: Number, default: 800, min: 0, max: 4000 },
     score: { type: Number, default: 0, min: 0 },
@@ -66,7 +66,7 @@ const chessTournamentSchema = new Schema(
     },
     schoolId: { type: Schema.Types.ObjectId, default: null, index: true },
     createdBy: { type: Schema.Types.ObjectId, required: true, index: true },
-    createdByModel: { type: String, enum: ["User", "Student"], default: "User" },
+    createdByModel: { type: String, enum: ["User", "StudentModel", "Teacher"], default: "User" },
     maxPlayers: { type: Number, default: 64, min: 2, max: 512 },
     roundsCount: { type: Number, default: 5, min: 1, max: 15 },
     timeControlMinutes: { type: Number, default: 10, min: 1, max: 180 },

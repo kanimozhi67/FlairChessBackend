@@ -10,28 +10,49 @@ const isObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
  */
 function getActor(req) {
   const user = req.user;
+  console.log("req.user.username :",req.user.username)
   if (!user) return null;
 
   const id = user._id || user.id || user.studentId;
   if (!id || !isObjectId(String(id))) return null;
 
+  const role = String(user.role || user.userType || "").toLowerCase();
+  const model = String(user.model || "");
+  const isStudent = model === "StudentModel" || model === "Student" || role === "student";
+  const isTeacher = model === "Teacher";
+  const schoolValue = user.schoolId || user.school || null;
+  const schoolId = schoolValue && isObjectId(String(schoolValue._id || schoolValue))
+    ? new mongoose.Types.ObjectId(String(schoolValue._id || schoolValue))
+    : null;
+
   return {
-    id: new mongoose.Types.ObjectId(id),
-    model: user.model === "Student" || user.studentId ? "Student" : "User",
-    name: String(user.name || user.username || user.fullName || "Flair Player").slice(0, 80),
-    schoolId: user.schoolId && isObjectId(String(user.schoolId))
-      ? new mongoose.Types.ObjectId(user.schoolId)
-      : null,
-    role: String(user.role || user.userType || "").toLowerCase(),
+    id: new mongoose.Types.ObjectId(String(id)),
+    model: isStudent ? "StudentModel" : isTeacher ? "Teacher" : "User",
+    name: String(user.username).slice(0, 80),
+    schoolId,
+    role,
   };
 }
 
-// Configure this against Flair's actual role/permission structure.
-// Deny by default until integrated.
-function canManageChessTournaments(req) {
+function canManageChessTournaments(req, tournament = null) {
   const actor = getActor(req);
+  console.log(actor)
   if (!actor) return false;
-  return ["admin", "superadmin", "schooladmin", "school_admin", "teacher"].includes(actor.role);
+
+  // Global Admin can manage any tournament. School staff can manage only their own school's tournaments.
+  if (["admin", "superadmin"].includes(actor.role) && actor.model === "User") return true;
+  if (!["schooladmin", "school_admin", "teacher"].includes(actor.role)) return false;
+  if (!actor.schoolId) return false;
+  if (!tournament) return true;
+  return Boolean(tournament.schoolId) && String(tournament.schoolId) === String(actor.schoolId);
+}
+
+function canViewTournament(req, tournament) {
+  const actor = getActor(req);
+  if (!actor || !tournament) return false;
+  // Global tournaments are visible to all authenticated account types.
+  if (!tournament.schoolId) return true;
+  return Boolean(actor.schoolId) && String(tournament.schoolId) === String(actor.schoolId);
 }
 
 function publicTournament(tournament) {
@@ -50,8 +71,15 @@ function publicTournament(tournament) {
 
 export async function listTournaments(req, res) {
   try {
+    const actor = getActor(req);
+    if (!actor) return res.status(401).json({ message: "Please sign in." });
+
+    const visibilityFilter = actor.schoolId
+      ? { $or: [{ schoolId: null }, { schoolId: actor.schoolId }] }
+      : { schoolId: null };
     const tournaments = await ChessTournament.find({
       status: { $ne: "cancelled" },
+      ...visibilityFilter,
     }).sort({ createdAt: -1 }).limit(100);
     return res.json(tournaments.map(publicTournament));
   } catch (error) {
@@ -59,34 +87,80 @@ export async function listTournaments(req, res) {
   }
 }
 
+
 export async function createTournament(req, res) {
   try {
     const actor = getActor(req);
-    if (!actor) return res.status(401).json({ message: "Please sign in." });
-    if (!canManageChessTournaments(req)) {
-      return res.status(403).json({ message: "You do not have permission to create tournaments." });
+
+    if (!actor) {
+      return res.status(401).json({
+        message: "Please sign in.",
+      });
     }
 
+    if (!canManageChessTournaments(req)) {
+      return res.status(403).json({
+        message: "Only an admin or school staff member can create tournaments.",
+      });
+    }
+console.log("createTournament started");
+
+res.once("finish", () => {
+  console.log("Response finished with status:", res.statusCode);
+});
+
+res.once("close", () => {
+  console.log("Response closed");
+});
     const name = String(req.body.name || "").trim();
-    if (name.length < 3) return res.status(400).json({ message: "Tournament name must be at least 3 characters." });
+
+    if (name.length < 3) {
+      return res.status(400).json({
+        message: "Tournament name must be at least 3 characters.",
+      });
+    }
 
     const maxPlayers = Number(req.body.maxPlayers ?? 64);
     const roundsCount = Number(req.body.roundsCount ?? 5);
-    const timeControlMinutes = Number(req.body.timeControlMinutes ?? 10);
+    const timeControlMinutes = Number(
+      req.body.timeControlMinutes ?? 10
+    );
 
-    if (!Number.isInteger(maxPlayers) || maxPlayers < 2 || maxPlayers > 512) {
-      return res.status(400).json({ message: "maxPlayers must be between 2 and 512." });
+    if (
+      !Number.isInteger(maxPlayers) ||
+      maxPlayers < 2 ||
+      maxPlayers > 512
+    ) {
+      return res.status(400).json({
+        message: "maxPlayers must be between 2 and 512.",
+      });
     }
-    if (!Number.isInteger(roundsCount) || roundsCount < 1 || roundsCount > 15) {
-      return res.status(400).json({ message: "Rounds must be between 1 and 15." });
+
+    if (
+      !Number.isInteger(roundsCount) ||
+      roundsCount < 1 ||
+      roundsCount > 15
+    ) {
+      return res.status(400).json({
+        message: "Rounds must be between 1 and 15.",
+      });
     }
-    if (!Number.isInteger(timeControlMinutes) || timeControlMinutes < 1 || timeControlMinutes > 180) {
-      return res.status(400).json({ message: "Time control must be between 1 and 180 minutes." });
+
+    if (
+      !Number.isInteger(timeControlMinutes) ||
+      timeControlMinutes < 1 ||
+      timeControlMinutes > 180
+    ) {
+      return res.status(400).json({
+        message: "Time control must be between 1 and 180 minutes.",
+      });
     }
 
     const tournament = await ChessTournament.create({
       name,
-      description: String(req.body.description || "").trim().slice(0, 500),
+      description: String(req.body.description || "")
+        .trim()
+        .slice(0, 500),
       createdBy: actor.id,
       createdByModel: actor.model,
       schoolId: actor.schoolId,
@@ -97,11 +171,39 @@ export async function createTournament(req, res) {
       status: "registration",
     });
 
-    return res.status(201).json(publicTournament(tournament));
-  } catch (error) {
-    return res.status(500).json({ message: "Could not create tournament." });
+   
+console.log("Tournament created:", tournament._id);
+
+// ADD THE DEBUG LOGS HERE
+console.log("Before publicTournament");
+
+const responseData = publicTournament(tournament);
+
+console.log("Before sending response:", {
+  headersSent: res.headersSent,
+});
+
+// Send the response only once
+return res.status(201).json(responseData);
+
+ } catch (error) {
+  console.error("createTournament error:", error);
+
+  if (res.headersSent) {
+    console.error(
+      "Headers already sent. Original error:",
+      error.message
+    );
+    return;
   }
+
+  return res.status(500).json({
+    message: "Could not create tournament.",
+    error: error.message,
+  });
 }
+}
+
 
 export async function joinTournament(req, res) {
   try {
@@ -119,8 +221,11 @@ export async function joinTournament(req, res) {
     if (tournament.players.length >= tournament.maxPlayers) {
       return res.status(400).json({ message: "Tournament is full." });
     }
-    if (tournament.schoolId && actor.schoolId && String(tournament.schoolId) !== String(actor.schoolId)) {
-      return res.status(403).json({ message: "This tournament is for another school." });
+    if (!canViewTournament(req, tournament)) {
+      return res.status(403).json({ message: "This tournament is not available to your account or school." });
+    }
+    if (actor.model === "Teacher") {
+      return res.status(403).json({ message: "Teacher accounts organise tournaments but cannot register as players." });
     }
     const alreadyJoined = tournament.players.some(
       (p) => String(p.userId) === String(actor.id) && p.userModel === actor.model
@@ -143,10 +248,10 @@ export async function joinTournament(req, res) {
 export async function generateRoundPairings(req, res) {
   try {
     if (!getActor(req)) return res.status(401).json({ message: "Please sign in." });
-    if (!canManageChessTournaments(req)) return res.status(403).json({ message: "Only an organiser can generate pairings." });
 
     const tournament = await ChessTournament.findById(req.params.tournamentId);
     if (!tournament) return res.status(404).json({ message: "Tournament not found." });
+    if (!canManageChessTournaments(req, tournament)) return res.status(403).json({ message: "Only an authorised organiser for this tournament can generate pairings." });
     if (tournament.status === "completed" || tournament.status === "cancelled") {
       return res.status(400).json({ message: "This tournament is not active." });
     }
@@ -174,10 +279,10 @@ export async function generateRoundPairings(req, res) {
 export async function publishRound(req, res) {
   try {
     if (!getActor(req)) return res.status(401).json({ message: "Please sign in." });
-    if (!canManageChessTournaments(req)) return res.status(403).json({ message: "Only an organiser can publish pairings." });
 
     const tournament = await ChessTournament.findById(req.params.tournamentId);
     if (!tournament) return res.status(404).json({ message: "Tournament not found." });
+    if (!canManageChessTournaments(req, tournament)) return res.status(403).json({ message: "Only an authorised organiser for this tournament can publish pairings." });
     const round = tournament.rounds.find((r) => r.roundNumber === Number(req.params.roundNumber));
     if (!round) return res.status(404).json({ message: "Round not found." });
     if (round.status !== "draft") return res.status(400).json({ message: "Only draft rounds can be published." });
@@ -206,7 +311,6 @@ export async function publishRound(req, res) {
 export async function submitPairingResult(req, res) {
   try {
     if (!getActor(req)) return res.status(401).json({ message: "Please sign in." });
-    if (!canManageChessTournaments(req)) return res.status(403).json({ message: "Only an organiser can record results." });
 
     const { result } = req.body;
     if (!["1-0", "0-1", "1/2-1/2"].includes(result)) {
@@ -215,6 +319,7 @@ export async function submitPairingResult(req, res) {
 
     const tournament = await ChessTournament.findById(req.params.tournamentId);
     if (!tournament) return res.status(404).json({ message: "Tournament not found." });
+    if (!canManageChessTournaments(req, tournament)) return res.status(403).json({ message: "Only an authorised organiser for this tournament can record results." });
     const round = tournament.rounds.find((r) => r.roundNumber === Number(req.params.roundNumber));
     if (!round) return res.status(404).json({ message: "Round not found." });
     if (round.status !== "published") return res.status(400).json({ message: "Publish the round before entering results." });
@@ -258,8 +363,13 @@ export async function submitPairingResult(req, res) {
 
 export async function getTournament(req, res) {
   try {
+    const actor = getActor(req);
+    if (!actor) return res.status(401).json({ message: "Please sign in." });
     const tournament = await ChessTournament.findById(req.params.tournamentId);
     if (!tournament) return res.status(404).json({ message: "Tournament not found." });
+    if (!canViewTournament(req, tournament)) {
+      return res.status(403).json({ message: "This tournament is not available to your account or school." });
+    }
     return res.json(publicTournament(tournament));
   } catch (error) {
     return res.status(500).json({ message: "Could not load tournament." });

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import authMiddleware from "../middleware/authMiddleware.js";
 import {
   createTournament,
   generateRoundPairings,
@@ -11,23 +12,12 @@ import {
 
 const router = Router();
 
-/**
- * IMPORTANT: Replace this with the authentication middleware already used by Flair.
- * Example only:
- * import { protect } from "../middleware/authMiddleware.js";
- * router.use(protect);
- */
-const requireAuth = (req, res, next) => {
-  if (!req.user) return res.status(401).json({ message: "Authentication middleware is not configured for chess routes." });
-  next();
-};
-
-router.get("/", requireAuth, listTournaments);
-router.post("/", requireAuth, createTournament);
-router.get("/:tournamentId", requireAuth, getTournament);
-router.post("/:tournamentId/join", requireAuth, joinTournament);
-router.post("/:tournamentId/rounds/generate", requireAuth, generateRoundPairings);
-router.post("/:tournamentId/rounds/:roundNumber/publish", requireAuth, publishRound);
-router.post("/:tournamentId/rounds/:roundNumber/pairings/:pairingId/result", requireAuth, submitPairingResult);
+router.get("/", authMiddleware, listTournaments);
+router.post("/", authMiddleware, createTournament);
+router.get("/:tournamentId", authMiddleware, getTournament);
+router.post("/:tournamentId/join", authMiddleware, joinTournament);
+router.post("/:tournamentId/rounds/generate", authMiddleware, generateRoundPairings);
+router.post("/:tournamentId/rounds/:roundNumber/publish", authMiddleware, publishRound);
+router.post("/:tournamentId/rounds/:roundNumber/pairings/:pairingId/result", authMiddleware, submitPairingResult);
 
 export default router;
