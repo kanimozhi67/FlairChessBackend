@@ -172,6 +172,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
+  "https://flair-chess.vercel.app/",
   "https://flair-olympiad-science-frontend.vercel.app",
   "https://flair-voice-frontend.vercel.app",
   "https://www.flairolympiad.com",
