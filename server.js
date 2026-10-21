@@ -10,6 +10,7 @@
 // import cors from "cors";
 
 // import progressRoutes from "./routes/progressRoutes.js";
+// import chessTournamentRoutes from "./routes/chessTournamentRoutes.js"
 // import connectdb from "./db/connectdb.js";
 // import cookieParser from "cookie-parser";
 // import { getUserInfo } from "./controllers/getUserInfo.js";
@@ -42,6 +43,7 @@
 
 // const allowedOrigins = [
 //   "http://localhost:3000",
+//    "https://flair-chess.vercel.app",
 //   "https://flair-olympiad-science-frontend.vercel.app",
 //   "https://flair-voice-frontend.vercel.app",
 //   "https://www.flairolympiad.com",
@@ -112,6 +114,7 @@
 // app.use("/api/auth", authRoutes);
 // app.use("/api/quiz", quizRoutes);
 // app.use("/api/quiz/progress", progressRoutes);
+// app.use("/api/chess/tournaments",chessTournamentRoutes);
 
 // app.use("/img", express.static(path.join(__dirname, "img")));
 // app.use("/api/payment", paymentRoutes);
@@ -139,14 +142,15 @@
 // startServer();
 
 
-import connectdb from "./db/connectdb.js";import express from "express";
+import connectdb from "./db/connectdb.js";
+import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-
+import chessTournamentRoutes from "./routes/chessTournamentRoutes.js"
 
 import authRoutes from "./routes/authRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
@@ -280,7 +284,7 @@ app.use("/api/quiz", quizRoutes);
 app.use("/api/quiz/progress", progressRoutes);
 
 app.use("/api/payment", paymentRoutes);
-
+app.use("/api/chess/tournaments",chessTournamentRoutes);
 /*
 |--------------------------------------------------------------------------
 | Static Images
