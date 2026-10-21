@@ -1,6 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
-import readingRoutes from "./routes/readingRoutes.js";
+
 // 🔥 FORCE PATH (Windows-safe)
 dotenv.config();
 
@@ -96,10 +96,6 @@ app.use("/test", (req, res) => {
   return res.json({ message: "app is working" });
 });
 
-app.use(
-  "/api/reading",
-  readingRoutes
-);
 
 app.get("/", (req, res) => {
   res.send("Flair Olympiad API running");
