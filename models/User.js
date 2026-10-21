@@ -10,7 +10,26 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "/img/rabbitAvatar.png",
     },
-
+badges: {
+  type: [
+    {
+      id: {
+        type: String,
+        required: true,
+      },
+      name: String,
+      emoji: String,
+      requiredStories: Number,
+      description: String,
+      color: String,
+      earnedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
+  default: [],
+},
     sticker: {
       type: [String],
       default: [],
