@@ -52,6 +52,23 @@ const chessTournamentGameSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    whiteTimeMs: {
+  type: Number,
+  default: 300000, // 5 minutes
+},
+blackTimeMs: {
+  type: Number,
+  default: 300000,
+},
+activeClock: {
+  type: String,
+  enum: ["w", "b", null],
+  default: "w",
+},
+clockStartedAt: {
+  type: Date,
+  default: null,
+},
   },
   { timestamps: true }
 );

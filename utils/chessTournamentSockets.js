@@ -7,6 +7,7 @@ import ChessTournament from "../models/ChessTournament.js";
 import ChessTournamentGame from "../models/ChessTournamentGame.js";
 
 const activeGames = new Map();
+const DEFAULT_TIME_MS = 5 * 60 * 1000;
 
 function idOf(value) {
   return value?._id?.toString?.() || value?.toString?.() || "";
@@ -14,7 +15,6 @@ function idOf(value) {
 
 function getToken(socket) {
   const authToken = socket.handshake.auth?.token;
-
   if (authToken) return authToken;
 
   const cookieHeader = socket.handshake.headers?.cookie || "";
@@ -30,6 +30,7 @@ function getToken(socket) {
           decodeURIComponent(item.slice(index + 1)),
         ];
       })
+      .filter(([key]) => key)
   );
 
   return cookies.token || cookies.accessToken || null;
@@ -37,18 +38,11 @@ function getToken(socket) {
 
 function getActorFromToken(token) {
   const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
+  if (!secret) throw new Error("JWT_SECRET is not configured");
 
   const decoded = jwt.verify(token, secret);
-
   const userId =
-    decoded.id ||
-    decoded.userId ||
-    decoded._id ||
-    decoded.sub;
+    decoded.id || decoded.userId || decoded._id || decoded.sub;
 
   if (!userId || !mongoose.isValidObjectId(userId)) {
     throw new Error("Invalid user identity");
@@ -57,10 +51,7 @@ function getActorFromToken(token) {
   return {
     userId: String(userId),
     userModel:
-      decoded.userModel ||
-      decoded.model ||
-      decoded.roleModel ||
-      null,
+      decoded.userModel || decoded.model || decoded.roleModel || null,
   };
 }
 
@@ -83,8 +74,7 @@ function findTournamentPlayer(tournament, actor) {
 function getRound(tournament, roundNumber) {
   return tournament.rounds.find(
     (round) =>
-      Number(round.roundNumber ?? round.number) ===
-      Number(roundNumber)
+      Number(round.roundNumber ?? round.number) === Number(roundNumber)
   );
 }
 
@@ -94,42 +84,69 @@ function getPairing(round, pairingId) {
   );
 }
 
-function isGameOver(game) {
-  return game.isGameOver();
-}
-
 function resultForGame(game) {
   if (game.isCheckmate()) {
     return game.turn() === "b" ? "1-0" : "0-1";
   }
 
-  if (game.isDraw()) {
-    return "1/2-1/2";
-  }
+  if (game.isDraw()) return "1/2-1/2";
 
   return "pending";
 }
 
-function publicState(game, tournamentGame) {
+/*
+ * Calculate the live remaining time without changing the saved base time.
+ * The database stores the time remaining at clockStartedAt.
+ */
+function getClockSnapshot(saved, now = Date.now()) {
+  let whiteTimeMs = Number.isFinite(saved.whiteTimeMs)
+    ? Math.max(0, saved.whiteTimeMs)
+    : DEFAULT_TIME_MS;
+
+  let blackTimeMs = Number.isFinite(saved.blackTimeMs)
+    ? Math.max(0, saved.blackTimeMs)
+    : DEFAULT_TIME_MS;
+
+  const activeClock =
+    saved.status === "active" ? saved.activeClock : null;
+
+  if (activeClock && saved.clockStartedAt) {
+    const startedAt = new Date(saved.clockStartedAt).getTime();
+    const elapsed = Math.max(0, now - startedAt);
+
+    if (activeClock === "w") {
+      whiteTimeMs = Math.max(0, whiteTimeMs - elapsed);
+    } else if (activeClock === "b") {
+      blackTimeMs = Math.max(0, blackTimeMs - elapsed);
+    }
+  }
+
+  return { whiteTimeMs, blackTimeMs, activeClock };
+}
+
+function publicState(game, saved) {
+  const clocks = getClockSnapshot(saved);
+
   return {
     fen: game.fen(),
     moves: game.history(),
     turn: game.turn(),
-    status: tournamentGame.status,
-    result: tournamentGame.result,
+    status: saved.status,
+    result: saved.result,
     isCheck: game.isCheck(),
     isCheckmate: game.isCheckmate(),
     isDraw: game.isDraw(),
     gameOver: game.isGameOver(),
+    whiteTimeMs: clocks.whiteTimeMs,
+    blackTimeMs: clocks.blackTimeMs,
+    activeClock: clocks.activeClock,
   };
 }
 
 async function loadGame(tournamentId, roundNumber, pairingId) {
   const key = `${tournamentId}:${roundNumber}:${pairingId}`;
 
-  if (activeGames.has(key)) {
-    return activeGames.get(key);
-  }
+  if (activeGames.has(key)) return activeGames.get(key);
 
   const saved = await ChessTournamentGame.findOne({
     tournamentId,
@@ -141,9 +158,7 @@ async function loadGame(tournamentId, roundNumber, pairingId) {
     throw new Error("Match state has not been initialized");
   }
 
-  const chess = new Chess(
-    saved.fen === "start" ? undefined : saved.fen
-  );
+  const chess = new Chess(saved.fen === "start" ? undefined : saved.fen);
 
   const state = {
     chess,
@@ -153,7 +168,6 @@ async function loadGame(tournamentId, roundNumber, pairingId) {
   };
 
   activeGames.set(key, state);
-
   return state;
 }
 
@@ -161,13 +175,9 @@ export default function registerChessTournamentSockets(io) {
   io.use((socket, next) => {
     try {
       const token = getToken(socket);
-
-      if (!token) {
-        return next(new Error("Authentication required"));
-      }
+      if (!token) return next(new Error("Authentication required"));
 
       socket.data.actor = getActorFromToken(token);
-
       next();
     } catch (error) {
       next(new Error(error.message || "Authentication failed"));
@@ -193,9 +203,7 @@ export default function registerChessTournamentSockets(io) {
           return ack({ ok: false, message: "Tournament not found." });
         }
 
-        if (
-          !["in-progress"].includes(tournament.status)
-        ) {
+        if (tournament.status !== "in-progress") {
           return ack({
             ok: false,
             message: "This tournament has not started.",
@@ -231,22 +239,20 @@ export default function registerChessTournamentSockets(io) {
         const whitePlayerId = idOf(pairing.whitePlayer);
         const blackPlayerId = idOf(pairing.blackPlayer);
 
-        if (
-          playerId !== whitePlayerId &&
-          playerId !== blackPlayerId
-        ) {
+        if (playerId !== whitePlayerId && playerId !== blackPlayerId) {
           return ack({
             ok: false,
             message: "You are not assigned to this match.",
           });
         }
 
+        const initialTimeMs =
+          Math.max(1, Number(tournament.timeControlMinutes) || 5) *
+          60 *
+          1000;
+
         const saved = await ChessTournamentGame.findOneAndUpdate(
-          {
-            tournamentId,
-            roundNumber: Number(roundNumber),
-            pairingId,
-          },
+          { tournamentId, roundNumber: Number(roundNumber), pairingId },
           {
             $setOnInsert: {
               tournamentId,
@@ -257,6 +263,10 @@ export default function registerChessTournamentSockets(io) {
               fen: "start",
               status: "active",
               result: "pending",
+              whiteTimeMs: initialTimeMs,
+              blackTimeMs: initialTimeMs,
+              activeClock: "w",
+              clockStartedAt: new Date(),
             },
           },
           { new: true, upsert: true }
@@ -268,11 +278,54 @@ export default function registerChessTournamentSockets(io) {
           pairingId
         );
 
-        // Refresh the persisted document reference.
         state.saved = saved;
 
-        const room = state.key;
+        // Add clock fields to older matches that predate the timer.
+        let needsSave = false;
 
+        if (!Number.isFinite(state.saved.whiteTimeMs)) {
+          state.saved.whiteTimeMs = initialTimeMs;
+          needsSave = true;
+        }
+
+        if (!Number.isFinite(state.saved.blackTimeMs)) {
+          state.saved.blackTimeMs = initialTimeMs;
+          needsSave = true;
+        }
+
+        if (state.saved.status === "active" && !state.saved.activeClock) {
+          state.saved.activeClock = state.chess.turn();
+          needsSave = true;
+        }
+
+        if (state.saved.status === "active" && !state.saved.clockStartedAt) {
+          state.saved.clockStartedAt = new Date();
+          needsSave = true;
+        }
+
+        if (needsSave) await state.saved.save();
+
+        // If the player refreshes, charge elapsed time to the running clock.
+        const clocks = getClockSnapshot(state.saved);
+
+        if (
+          state.saved.status === "active" &&
+          (clocks.whiteTimeMs <= 0 || clocks.blackTimeMs <= 0)
+        ) {
+          const flaggingColor =
+            clocks.whiteTimeMs <= 0 ? "w" : "b";
+
+          state.saved.whiteTimeMs = clocks.whiteTimeMs;
+          state.saved.blackTimeMs = clocks.blackTimeMs;
+          state.saved.status = "completed";
+          state.saved.activeClock = null;
+          state.saved.clockStartedAt = null;
+          state.saved.result = flaggingColor === "w" ? "0-1" : "1-0";
+
+          await state.saved.save();
+        }
+
+        const room = state.key;
         await socket.join(room);
 
         socket.data.match = {
@@ -291,6 +344,7 @@ export default function registerChessTournamentSockets(io) {
         });
 
         socket.to(room).emit("tournament:opponent-connected");
+        io.to(room).emit("tournament:state", publicState(state.chess, state.saved));
       } catch (error) {
         console.error("join-match error:", error);
         ack({
@@ -313,11 +367,45 @@ export default function registerChessTournamentSockets(io) {
         return ack({ ok: false, message: "Match state unavailable." });
       }
 
-      // Serialize moves per game to avoid two moves being accepted
-      // concurrently by this single Node.js process.
       const operation = state.lock.then(async () => {
         if (state.saved.status === "completed") {
           return ack({ ok: false, message: "This match has ended." });
+        }
+
+        const clocks = getClockSnapshot(state.saved);
+
+        // Enforce timeout on the server before accepting a move.
+        if (
+          clocks.whiteTimeMs <= 0 ||
+          clocks.blackTimeMs <= 0
+        ) {
+          const flaggingColor =
+            clocks.whiteTimeMs <= 0 ? "w" : "b";
+
+          state.saved.whiteTimeMs = clocks.whiteTimeMs;
+          state.saved.blackTimeMs = clocks.blackTimeMs;
+          state.saved.status = "completed";
+          state.saved.result = flaggingColor === "w" ? "0-1" : "1-0";
+          state.saved.activeClock = null;
+          state.saved.clockStartedAt = null;
+
+          await state.saved.save();
+
+          const timeoutState = publicState(state.chess, state.saved);
+          io.to(match.room).emit("tournament:state", timeoutState);
+          io.to(match.room).emit("tournament:finished", {
+            result: state.saved.result,
+            message:
+              flaggingColor === "w"
+                ? "White ran out of time. Black wins!"
+                : "Black ran out of time. White wins!",
+          });
+
+          return ack({
+            ok: false,
+            message: "Your match has ended on time.",
+            state: timeoutState,
+          });
         }
 
         if (state.chess.turn() !== match.color) {
@@ -326,10 +414,7 @@ export default function registerChessTournamentSockets(io) {
 
         const { from, to, promotion = "q" } = payload || {};
 
-        if (
-          typeof from !== "string" ||
-          typeof to !== "string"
-        ) {
+        if (typeof from !== "string" || typeof to !== "string") {
           return ack({ ok: false, message: "Invalid move." });
         }
 
@@ -347,6 +432,9 @@ export default function registerChessTournamentSockets(io) {
 
         const result = resultForGame(state.chess);
 
+        // Save both clocks at the instant the move is accepted.
+        state.saved.whiteTimeMs = clocks.whiteTimeMs;
+        state.saved.blackTimeMs = clocks.blackTimeMs;
         state.saved.fen = state.chess.fen();
         state.saved.moves = state.chess.history();
         state.saved.lastMoveAt = new Date();
@@ -354,23 +442,26 @@ export default function registerChessTournamentSockets(io) {
         if (result !== "pending") {
           state.saved.status = "completed";
           state.saved.result = result;
+          state.saved.activeClock = null;
+          state.saved.clockStartedAt = null;
         } else {
           state.saved.status = "active";
+          state.saved.activeClock = state.chess.turn();
+          state.saved.clockStartedAt = new Date();
         }
 
         await state.saved.save();
 
-        const statePayload = publicState(state.chess, state.saved);
-
-        io.to(match.room).emit("tournament:state", {
-          ...statePayload,
+        const statePayload = {
+          ...publicState(state.chess, state.saved),
           lastMove: {
             from: move.from,
             to: move.to,
             san: move.san,
           },
-        });
+        };
 
+        io.to(match.room).emit("tournament:state", statePayload);
         ack({ ok: true, state: statePayload });
 
         if (result !== "pending") {
@@ -388,6 +479,7 @@ export default function registerChessTournamentSockets(io) {
 
       state.lock = operation.catch((error) => {
         console.error("make-move error:", error);
+        ack({ ok: false, message: "Could not process the move." });
       });
 
       await state.lock;
