@@ -226,6 +226,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+app.options(/.*/, cors(corsOptions));
 
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") {
@@ -279,20 +280,6 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(async (req, res, next) => {
-  try {
-    await connectdb();
-    console.log("db connected");
-    next();
-  } catch (error) {
-    console.error("Database connection failed:", error.message);
-
-    res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-    });
-  }
-});
 
 /*
 |--------------------------------------------------------------------------
