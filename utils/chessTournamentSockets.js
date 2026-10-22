@@ -325,6 +325,12 @@ export default function registerChessTournamentSockets(io) {
           state.saved.result = flaggingColor === "w" ? "0-1" : "1-0";
 
           await state.saved.save();
+          await recordTournamentGameResult({
+  tournamentId,
+  roundNumber: Number(roundNumber),
+  pairingId,
+  result: state.saved.result,
+});
         }
 
         const room = state.key;
@@ -393,15 +399,12 @@ export default function registerChessTournamentSockets(io) {
 
           await state.saved.save();
 
-if (result !== "pending") {
-  await recordTournamentGameResult({
-    tournamentId: match.tournamentId,
-    roundNumber: match.roundNumber,
-    pairingId: match.pairingId,
-    result,
-  });
-}
-
+await recordTournamentGameResult({
+  tournamentId: match.tournamentId,
+  roundNumber: match.roundNumber,
+  pairingId: match.pairingId,
+  result: state.saved.result,
+});
 
           const timeoutState = publicState(state.chess, state.saved);
           io.to(match.room).emit("tournament:state", timeoutState);
