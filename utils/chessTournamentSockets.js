@@ -2,7 +2,9 @@
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { Chess } from "chess.js";
-
+import {
+  recordTournamentGameResult,
+} from "../services/chessTournamentAutomation.js";
 import ChessTournament from "../models/ChessTournament.js";
 import ChessTournamentGame from "../models/ChessTournamentGame.js";
 
@@ -390,6 +392,16 @@ export default function registerChessTournamentSockets(io) {
           state.saved.clockStartedAt = null;
 
           await state.saved.save();
+
+if (result !== "pending") {
+  await recordTournamentGameResult({
+    tournamentId: match.tournamentId,
+    roundNumber: match.roundNumber,
+    pairingId: match.pairingId,
+    result,
+  });
+}
+
 
           const timeoutState = publicState(state.chess, state.saved);
           io.to(match.room).emit("tournament:state", timeoutState);

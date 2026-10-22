@@ -265,12 +265,45 @@ export async function generateRoundPairings(req, res) {
     const activePlayers = tournament.players.filter((p) => !p.withdrawn);
     if (activePlayers.length < 2) return res.status(400).json({ message: "At least two active players are required." });
 
-    const roundNumber = tournament.rounds.length + 1;
-    const generated = generateSwissPairings(activePlayers, roundNumber);
-    tournament.rounds.push({ ...generated, status: "draft", generatedAt: new Date() });
-    await tournament.save();
 
-    return res.status(201).json(publicTournament(tournament));
+const roundNumber = tournament.rounds.length + 1;
+const generated = generateSwissPairings(activePlayers, roundNumber);
+
+const now = new Date();
+
+tournament.rounds.push({
+  ...generated,
+  roundNumber,
+  status: "published",
+  generatedAt: now,
+  publishedAt: now,
+});
+
+const newRound = tournament.rounds.find(
+  (round) => round.roundNumber === roundNumber
+);
+
+// Award the bye point immediately when the round becomes active.
+for (const pairing of newRound.pairings) {
+  if (pairing.status !== "bye" || !pairing.whitePlayer) continue;
+
+  const byePlayer = tournament.players.id(pairing.whitePlayer);
+
+  if (byePlayer) {
+    byePlayer.score += 1;
+    byePlayer.byeReceived = true;
+
+    pairing.result = "bye";
+    pairing.completedAt = now;
+  }
+}
+
+tournament.status = "in-progress";
+
+await tournament.save();
+
+return res.status(201).json(publicTournament(tournament));
+
   } catch (error) {
     return res.status(500).json({ message: error.message || "Could not generate pairings." });
   }
