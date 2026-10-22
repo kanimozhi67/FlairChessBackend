@@ -223,8 +223,12 @@ const corsOptions = {
     "Authorization",
   ],
 };
-const server = http.createServer(app);
+
 app.use(cors(corsOptions));
+
+
+const server = http.createServer(app);
+
 
 const io = new Server(server, {
   path: "/socket.io",
@@ -266,6 +270,20 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(async (req, res, next) => {
+  try {
+    await connectdb();
+    console.log("db connected");
+    next();
+  } catch (error) {
+    console.error("Database connection failed:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
+});
 
 /*
 |--------------------------------------------------------------------------
