@@ -1,33 +1,23 @@
 
 {
   "version": 2,
+  "functions": {
+    "api/index.js": {
+      "supportsResponseStreaming": true
+    }
+  },
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/api/index.js"
-    }
-  ],
-  "headers": [
+      "source": "/socket.io",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/socket.io/(.*)",
+      "destination": "/api/index"
+    },
     {
       "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://flair-chess.vercel.app"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-Requested-With"
-        },
-        {
-          "key": "Access-Control-Allow-Credentials",
-          "value": "true"
-        }
-      ]
+      "destination": "/api/index"
     }
   ]
 }

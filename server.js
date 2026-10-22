@@ -287,6 +287,24 @@ app.use(cookieParser());
 |--------------------------------------------------------------------------
 */
 
+app.use(async (req, res, next) => {
+  try {
+    await connectdb();
+    next();
+  } catch (error) {
+    console.error("Database connection failed:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
+});
+
+
+
+
+
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
