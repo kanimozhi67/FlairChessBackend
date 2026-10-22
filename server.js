@@ -143,6 +143,8 @@
 // startServer();
 
 
+
+import { createServer } from "node:http";
 import connectdb from "./db/connectdb.js";
 import express from "express";
 import dotenv from "dotenv";
@@ -170,6 +172,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -221,19 +225,18 @@ const corsOptions = {
 };
 const server = http.createServer(app);
 app.use(cors(corsOptions));
-const io = new Server(server, {
-  cors: {
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
 
-      callback(new Error("Socket origin not allowed"));
-    },
-    credentials: true,
+const io = new Server(server, {
+  path: "/socket.io",
+  cors: {
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
+    credentials: true,
   },
+  transports: ["websocket"],
 });
+
+
 
 registerChessTournamentSockets(io);
 app.set("io", io);
@@ -357,4 +360,4 @@ io.on("connection", (socket) => {
     console.log("Chess socket disconnected:", socket.id);
   });
 });
-export default app;
+export default server;
