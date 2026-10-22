@@ -465,16 +465,37 @@ await recordTournamentGameResult({
           state.saved.clockStartedAt = new Date();
         }
 
-        await state.saved.save();
+       
+await state.saved.save();
 
-        const statePayload = {
-          ...publicState(state.chess, state.saved),
-          lastMove: {
-            from: move.from,
-            to: move.to,
-            san: move.san,
-          },
-        };
+// Also update the tournament pairing when the chess game ends.
+if (result !== "pending") {
+  try {
+    await recordTournamentGameResult({
+      tournamentId: match.tournamentId,
+      roundNumber: Number(match.roundNumber),
+      pairingId: match.pairingId,
+      result,
+    });
+  } catch (error) {
+    console.error("Failed to update tournament result:", {
+      tournamentId: match.tournamentId,
+      roundNumber: match.roundNumber,
+      pairingId: match.pairingId,
+      result,
+      error: error.message,
+    });
+  }
+}
+
+const statePayload = {
+  ...publicState(state.chess, state.saved),
+  lastMove: {
+    from: move.from,
+    to: move.to,
+    san: move.san,
+  },
+};
 
         io.to(match.room).emit("tournament:state", statePayload);
         ack({ ok: true, state: statePayload });
