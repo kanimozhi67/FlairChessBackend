@@ -374,4 +374,6 @@ io.on("connection", (socket) => {
     console.log("Chess socket disconnected:", socket.id);
   });
 });
+
+export { app };
 export default server;

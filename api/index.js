@@ -1,5 +1,5 @@
 
-import app from "../server.js";
+import { app } from "../server.js";
 import connectdb from "../db/connectdb.js";
 
 const allowedOrigins = [
