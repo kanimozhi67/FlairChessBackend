@@ -9,7 +9,7 @@ import ChessTournament from "../models/ChessTournament.js";
 import ChessTournamentGame from "../models/ChessTournamentGame.js";
 
 const activeGames = new Map();
-const DEFAULT_TIME_MS = 5 * 60 * 1000;
+const DEFAULT_TIME_MS = 30 * 60 * 1000;
 
 function idOf(value) {
   return value?._id?.toString?.() || value?.toString?.() || "";
